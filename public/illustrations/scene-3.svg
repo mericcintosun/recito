@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640">
+  <defs>
+    <filter id="float" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#1f1840" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="960" height="640" fill="#d6cbf3"/>
+  <g transform="rotate(-4 260 330)">
+    <rect x="80" y="110" width="360" height="440" rx="20" fill="#efeafc" filter="url(#float)"/>
+    <g fill="#c9bdee">
+      <rect x="120" y="170" width="280" height="12" rx="6"/>
+      <rect x="120" y="226" width="280" height="12" rx="6"/>
+      <rect x="120" y="282" width="280" height="12" rx="6"/>
+      <rect x="120" y="338" width="280" height="12" rx="6"/>
+      <rect x="120" y="394" width="280" height="12" rx="6"/>
+      <rect x="120" y="450" width="200" height="12" rx="6"/>
+    </g>
+    <ellipse cx="200" cy="176" rx="44" ry="20" fill="none" stroke="#b3382c" stroke-width="4"/>
+    <path d="M300 220 L340 244" stroke="#a8641c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M150 340 l10 12 l22 -26" fill="none" stroke="#2e7d4f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M330 390 l10 12 l22 -26" fill="none" stroke="#2e7d4f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="236" y="430" width="10" height="40" rx="5" fill="#f2b632"/>
+  </g>
+  <rect x="520" y="110" width="360" height="440" rx="20" fill="#efeafc" filter="url(#float)"/>
+  <g fill="#c9bdee">
+    <rect x="560" y="170" width="280" height="12" rx="6"/>
+    <rect x="560" y="226" width="280" height="12" rx="6"/>
+    <rect x="560" y="282" width="280" height="12" rx="6"/>
+    <rect x="560" y="338" width="280" height="12" rx="6"/>
+    <rect x="560" y="394" width="280" height="12" rx="6"/>
+    <rect x="560" y="450" width="200" height="12" rx="6"/>
+  </g>
+  <rect x="600" y="162" width="88" height="28" rx="12" fill="#b3382c"/>
+  <rect x="736" y="218" width="76" height="28" rx="12" fill="none" stroke="#a8641c" stroke-width="3" stroke-dasharray="8 6"/>
+  <rect x="676" y="430" width="10" height="40" rx="5" fill="#f2b632"/>
+  <rect x="580" y="500" width="120" height="20" rx="10" fill="#c22a60"/>
+  <g transform="translate(480 300)">
+    <circle r="46" fill="#efeafc" stroke="#1f1840" stroke-width="6" filter="url(#float)"/>
+    <rect x="-8" y="-62" width="16" height="12" rx="4" fill="#1f1840"/>
+    <path d="M0 0 L0 -28" stroke="#c22a60" stroke-width="6" stroke-linecap="round"/>
+    <path d="M0 0 L18 10" stroke="#1f1840" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>
