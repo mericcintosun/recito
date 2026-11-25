@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadingTraceChart, type ChartReading } from "@/components/reading-trace-chart";
 import { SceneSlot } from "@/components/scene-slot";
@@ -7,6 +8,10 @@ import { analyzeReading, evaluateSamples, readingTrace, scoreReading } from "@/l
 
 // Archetype L5 bands: full-width stripes alternating ground, surface and deep, each one
 // sentence plus one artifact. No columns, no cards inside a band.
+
+export const metadata: Metadata = {
+  title: { absolute: "Recito: one-minute reading fluency checks in the browser" },
+};
 
 function buildChartReadings(): ChartReading[] {
   return sampleReadings.flatMap((r) => {

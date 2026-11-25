@@ -104,7 +104,8 @@ export function ReadingTraceChart({ readings }: { readings: ChartReading[] }) {
         ))}
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={summary}>
+      <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[320px]" role="img" aria-label={summary}>
         {y.ticks(5).map((t) => (
           <g key={`y${t}`}>
             <line x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} className="stroke-line" strokeWidth={1} />
@@ -155,6 +156,7 @@ export function ReadingTraceChart({ readings }: { readings: ChartReading[] }) {
           </motion.circle>
         ))}
       </svg>
+      </div>
 
       <figcaption className="space-y-3">
         <p className="max-w-[70ch] text-base text-foreground">{summary}</p>

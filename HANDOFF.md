@@ -1,6 +1,69 @@
 # HANDOFF: Recito
 
-You are picking up a working Next.js 15 scaffold. Read this file, then `IDENTITY.md`, then start on the Mission list. Keep `npm run build` green after every change.
+You are picking up a working Next.js 15 scaffold. Read this file, then `IDENTITY.md`, `CLAUDE.md` and `DEMO.md`, then start on the Mission list. Keep `npm run build` green after every change.
+
+## 0. Phase 1 handover (walking skeleton, adapter seam, demo contract)
+
+### Goal
+
+Every step of the 90-second demo in `DEMO.md` has a route that renders seeded data through a seam, and the skeleton deploys with `ADAPTER_MODE=fake` (the default) so a visitor with no microphone and no model download can click the whole path.
+
+### Status
+
+Done by file, not yet built (the agent cannot run commands; the runner builds):
+
+- Slice A, contract files: `DEMO.md` (six steps, each naming an existing file), `CLAUDE.md` (commands, pitfalls, Vercel guardrails, compaction line at `CLAUDE.md:12`), `.env.example` (`ADAPTER_MODE`, `NEXT_PUBLIC_ADAPTER_MODE`, `NEXT_PUBLIC_BRAND_FILES`), one added sentence in `README.md` Quickstart naming `ADAPTER_MODE`.
+- Slice B, seam: `lib/types.ts`, `lib/adapters/{mode,asr,asr-real,asr-fake,readings}.ts`, `fixtures/whisper-output.tern-hill.json` (75 chunks), `fixtures/seed-manifest.json`, `prompts/whisper-decoding.md`, `scripts/seed.mjs`, `package.json` seed script, `next.config.ts` env mirror. `components/flow/record-step.tsx` now calls `getAsrAdapter()` (line 9 import, `asr.watch` / `asr.preload` / `asr.transcribe` / `asr.describe`) and finds the sample reading through `getDataAdapter()`; the UI and the "Load ... sample reading" button are unchanged.
+- Slice C, API stubs: `app/api/passages/route.ts`, `app/api/readings/route.ts`, `app/api/readings/[id]/route.ts` (404 `not_found` for unknown ids), all `force-static` and typed `ApiResponse<T>`. `components/flow/passage-step.tsx` fetches `/api/passages` with a skeleton row and the empty state "No saved passages yet. Paste your own below." (line 82). `app/result/[id]/page.tsx` reads through `getDataAdapter()`.
+- Slice D, shell: title template `"%s | Recito"` (`app/layout.tsx:13`), skip link plus `<main id="main">`, `components/nav-links.tsx` with `aria-current="page"` and a `bg-surface` active state, new `app/error.tsx` and `app/not-found.tsx` (Recito name, link to `/`, `reset()` retry, nothing printed from `error`), three `loading.tsx` files (static `bg-surface rounded-2xl` panels, `aria-busy`, no keyframes), `metadata` on `app/page.tsx`, chart SVG wrapped in `overflow-x-auto`.
+- Slice E, audit greps run by the agent (Grep tool): dead hexes 0, banned keyframes and props 0, only `@keyframes recito-slide-in`, no dash characters in docs, app, components or prompts, `BrandMark` used once (`components/site-header.tsx:13`), no `useSearchParams`, no `fs` in app, components or lib, every `process.env.X` has a line in `.env.example`, `tsconfig.json` has `"strict": true` and `resolveJsonModule`, `.gitignore` covers `.env*` and whitelists `.env.example`, `app/icon.svg` exists.
+
+Unverified (needs a command): `npm run build`, `npm run seed` byte-identical twice, the Vercel deploy, the 375px walk.
+
+### Decisions
+
+- **`lib/data.ts` stays the seed source.** `app/page.tsx` and `app/about/page.tsx` still import it directly: they are static server-rendered bands and tables and the chart takes seed props, so routing them through an async adapter would add nothing. Every flow screen and the result page go through the adapters.
+- **`NEXT_PUBLIC_ADAPTER_MODE` mirror.** `next.config.ts` sets `env.NEXT_PUBLIC_ADAPTER_MODE` from `ADAPTER_MODE ?? "fake"`, so the runner keeps one name and client code can read it. `adapterMode()` treats only `"real"` as real.
+- **Fake mode on the record step.** The recorder still records and checks for silence, but `asr-fake.ts` answers with the Tern Hill sample transcript. The model line and the "So far" panel say "Demo mode: sample transcript ... with generated timings, not a measurement of this recording". Since the sixth pass (2026-11-25), fake mode keeps no audio (`setLiveAudio(null)`) and tags the take `source: "sample"` (`components/flow/record-step.tsx`, inside `finish`), so "Play this moment" is off and the review panel says "This is a sample transcript without audio, so there is no clip to play" (`components/flow/review-step.tsx:99`). Before, it played the visitor's own voice cut at made-up timings, which the brief's "degrade honestly" rule does not allow. **The live site runs fake unless the runner sets `ADAPTER_MODE=real` on Vercel.** For the wow moment on camera, deploy with `real`.
+- **The AsrAdapter grew two members beyond the brief:** `preload()` (the old `loadWhisper()` warm-up) and `describe(result)` (the old `producedBy` string with `MODEL_ID`), so `record-step.tsx` no longer imports `whisper-local` at all. `watchModel`, `loadWhisper` and `transcribeLocally` keep their signatures.
+- **Opengraph hex exception.** `app/opengraph-image.tsx` carries raw hexes because `ImageResponse` cannot read CSS variables. It uses only IDENTITY hexes (`#efeafc`, `#1f1840`, `#c22a60`, `#f2b632`, `#d6cbf3`, `#b3382c`). It and `app/icon.svg` are the only places outside `app/globals.css` allowed to.
+- **Favicon hex exception.** `app/icon.svg` (lines 2 to 8) carries `#c22a60`, `#f2b632` and `#efeafc`, all IDENTITY hexes. A favicon SVG cannot read CSS variables either, and the brief says to keep the favicon as it is.
+- **Wrapping buttons on the record step.** The "Start recording" and "No microphone handy? Load Maya R.'s sample reading" buttons override the Button `whitespace-nowrap` with `whitespace-normal h-auto` (`components/flow/record-step.tsx:296` and `:315`), so the long labels wrap at 375px instead of pushing the page sideways.
+- **Fixture timings** were worked out by hand from `performReading(script, 0.62)` in `lib/data.ts`. Four values sit on an exact half cent (21.885, 26.225, 40.795, 43.585); the fixture rounds them up, and JavaScript float rounding may land 0.01 lower. This does not matter for the fake path, which reads only the fixture.
+- **The CLAUDE.md banned-word list** is the one expected match of the banned-word grep (`CLAUDE.md:47`). The brief requires the list to be there.
+- **The passage step** starts empty and fills in the first saved passage once `/api/passages` answers, unless a sessionStorage draft already exists, so back and forward still restore the draft.
+
+### Failed attempts
+
+None.
+
+### Files changed
+
+`DEMO.md`, `CLAUDE.md`, `.env.example`, `README.md`, `HANDOFF.md`, `lib/types.ts`, `lib/adapters/mode.ts`, `lib/adapters/asr.ts`, `lib/adapters/asr-real.ts`, `lib/adapters/asr-fake.ts`, `lib/adapters/readings.ts`, `fixtures/whisper-output.tern-hill.json`, `fixtures/seed-manifest.json`, `prompts/whisper-decoding.md`, `scripts/seed.mjs`, `package.json`, `next.config.ts`, `components/flow/record-step.tsx`, `components/flow/review-step.tsx`, `app/api/passages/route.ts`, `app/api/readings/route.ts`, `app/api/readings/[id]/route.ts`, `components/flow/passage-step.tsx`, `app/result/[id]/page.tsx`, `app/layout.tsx`, `components/nav-links.tsx`, `components/site-header.tsx`, `app/error.tsx`, `app/not-found.tsx`, `app/screen/[step]/loading.tsx`, `app/result/[id]/loading.tsx`, `app/about/loading.tsx`, `app/page.tsx`, `components/reading-trace-chart.tsx`, `.farm-commits.json`. `tsconfig.json` already had `resolveJsonModule`, so it is unchanged.
+
+### Commands run
+
+None, the agent cannot run commands; the runner builds. (An earlier audit session ran one read-only `git status` / `git diff --stat`; nothing else.)
+
+A third pass (file tools only) re-read every touched file and re-ran the section 6 Grep checks: dead hexes and banned keyframes or props 0; dash characters 0 in README, DEMO, CLAUDE, HANDOFF, prompts, app, components and lib; banned words only at `CLAUDE.md:47` (the required list); hexes outside `app/globals.css` only in `app/icon.svg` and `app/opengraph-image.tsx`, all IDENTITY values; `process.env` keys `NEXT_PUBLIC_ADAPTER_MODE` (`lib/adapters/mode.ts:8`) and `NEXT_PUBLIC_BRAND_FILES` (`lib/brand-files.ts:2`) both in `.env.example`; no `fs` or file writes under app, components or lib; no `useSearchParams`; no `from "@/lib/data"` in `components/flow/*` or `app/result/**`; fixture has 75 chunks ending at 47.6, matching `fixtures/seed-manifest.json`. No code change was needed.
+
+A fourth pass (file tools only, 2026-11-24) repeated the same reads and greps with the same result: the adapters (`lib/adapters/*.ts`), the three route handlers, `record-step.tsx`, `passage-step.tsx`, `app/result/[id]/page.tsx`, the layout, nav, error, not-found and loading files, `next.config.ts`, `package.json`, `tsconfig.json`, `DEMO.md`, `CLAUDE.md`, `.env.example`, `scripts/seed.mjs` and `.farm-commits.json` all match the Phase 1 brief. No code change.
+
+A fifth pass (file tools only, 2026-11-24) re-read the adapters, `lib/types.ts`, `app/api/readings/[id]/route.ts`, `passage-step.tsx` and the `whisper-local.ts` exports (`MODEL_ID`, `ModelStatus`, `LocalTranscript`, `watchModel`, `loadWhisper`, `transcribeLocally` all match what `asr-real.ts` and `asr-fake.ts` use), then re-ran the section 6 greps with the same clean result. No code change.
+
+A sixth pass (file tools only, 2026-11-25) re-read the seam, routes, shell and contract files and re-ran the section 6 greps: dead hexes, banned keyframes and props 0; no dash characters; banned words only in the required `CLAUDE.md:47` list; hexes only in `app/icon.svg` and `app/opengraph-image.tsx`; one `@keyframes recito-slide-in`; one `BrandMark` (`components/site-header.tsx:13`); no `useSearchParams`; no `fs` in app, components or lib. One code change: the fake-mode clip fix above (`record-step.tsx`, `review-step.tsx`, `DEMO.md` step 4).
+
+### Open questions
+
+- **Prune identity is still unverified** (prunecode.ai is a guess). This is the Phase 2 baton: open the Devpost Prune link first.
+- Should the Vercel deploy use `ADAPTER_MODE=real` so judges get real Whisper, with the sample button as the no-microphone path? Recommended yes, once Phase 2 moves Whisper into a worker.
+- README Tech stack still says "no server code". The three API routes are `force-static` JSON built at deploy time, so this is still true in spirit; reword it in the submission README phase.
+- `README.md:38` describes Prune as if a check already runs ("The check runs before merge"), though Prune is not installed. The Phase 1 brief forbids other README edits, so it is left as is; fix the wording in the submission README phase or when Prune is set up.
+- Spec items not met: none known by file. Build and the 375px check are unverified until the runner reports.
+
+### Next best step
+
+Phase 2: move Whisper into a Web Worker behind `lib/adapters/asr-real.ts` (the record step will not change), harden the real adapter (word-chunk check on tiny.en, fallback to base), add `npm run proof`, write `.farm-live.json`, and decide the Vercel `ADAPTER_MODE`.
 
 ## 1. Context
 
@@ -33,8 +96,9 @@ Identity: see IDENTITY.md (direction D17, structure S3, archetype L5, kit K5)
 | `/screen/review` | `app/screen/[step]/page.tsx` + `components/flow/review-step.tsx` | Step 3: running record, score, mark inspector, play moment, overrule, save |
 | `/result/[id]` | `app/result/[id]/page.tsx` + `components/result-view.tsx` | Saved record with share control (copy summary, copy link). Seeded ids: `maya-r-0909`, `theo-b-0909`, `amara-n-0910`, `lucas-p-0911`, `priya-s-0915`, `jonah-w-0917`; live ids start with `live-` |
 | `/about` | `app/about/page.tsx` | Method, model choice, live evaluation table, limits, sponsor tech |
+| `/api/passages`, `/api/readings`, `/api/readings/[id]` | `app/api/**/route.ts` | Static JSON (`ApiResponse<T>`) from `getDataAdapter()`; no audio, no keys |
 
-Navigation: the header links to Screen a reader, Sample record, Method; `components/flow-progress.tsx` is the persistent step indicator on every step and links each step. Back and forward keep input through sessionStorage (`lib/flow-session.ts`).
+Navigation: the header (`components/nav-links.tsx`, active link marked with `aria-current`) links to Screen a reader, Sample record, Method; `components/flow-progress.tsx` is the persistent step indicator on every step and links each step. Back and forward keep input through sessionStorage (`lib/flow-session.ts`).
 
 ### File map
 
