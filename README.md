@@ -49,7 +49,7 @@ npm run dev
 # open http://localhost:3000
 ```
 
-No environment variables are needed (`.env.example` says so). The first recording downloads the model; after that it works offline from cache. No microphone? On the record step, load a sample reading to walk the whole flow.
+No environment variables are needed (`.env.example` says so). One optional switch, `ADAPTER_MODE`, picks the speech engine: `fake` (the default) answers every recording with a labelled sample transcript from `fixtures/` and downloads nothing, while `real` runs Whisper in the browser. In real mode the first recording downloads the model; after that it works offline from cache. No microphone? On the record step, load a sample reading to walk the whole flow.
 
 ## What we would build next
 
