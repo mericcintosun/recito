@@ -1,26 +1,28 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ResultView } from "@/components/result-view";
-import { passageById, sampleReadings } from "@/lib/data";
+import { getDataAdapter } from "@/lib/adapters/readings";
 import type { ResultRecord } from "@/lib/flow-session";
 
-export function generateStaticParams() {
-  return sampleReadings.map((r) => ({ id: r.id }));
+export async function generateStaticParams() {
+  const readings = await getDataAdapter().listReadings();
+  return readings.map((r) => ({ id: r.id }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const reading = sampleReadings.find((r) => r.id === id);
+  const reading = await getDataAdapter().getReading(id);
   return { title: reading ? `${reading.student}'s running record` : "Running record" };
 }
 
 export default async function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const reading = sampleReadings.find((r) => r.id === id);
+  const data = getDataAdapter();
+  const reading = await data.getReading(id);
   let seeded: ResultRecord | undefined;
 
   if (reading) {
-    const passage = passageById(reading.passageId);
+    const passage = await data.getPassage(reading.passageId);
     if (!passage) notFound();
     seeded = {
       student: reading.student,

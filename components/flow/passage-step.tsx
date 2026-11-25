@@ -1,37 +1,63 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { passages } from "@/lib/data";
 import { readDraft, writeDraft, type FlowDraft } from "@/lib/flow-session";
 import { tokenizePassage } from "@/lib/scoring";
+import type { ApiResponse, Passage } from "@/lib/types";
 
 const MIN_WORDS = 10;
 
-const DEFAULT_DRAFT: FlowDraft = {
-  student: "",
-  passageId: passages[0].id,
-  title: passages[0].title,
-  text: passages[0].text,
-};
+const EMPTY_DRAFT: FlowDraft = { student: "", passageId: null, title: "Pasted passage", text: "" };
+
+type PassageList = { state: "loading" } | { state: "ready"; passages: Passage[] };
 
 export function PassageStep() {
-  const [draft, setDraft] = useState<FlowDraft>(DEFAULT_DRAFT);
+  const [draft, setDraft] = useState<FlowDraft>(EMPTY_DRAFT);
   const [hydrated, setHydrated] = useState(false);
+  const [list, setList] = useState<PassageList>({ state: "loading" });
+  const hadSavedDraft = useRef(false);
 
   useEffect(() => {
     const saved = readDraft();
-    if (saved) setDraft(saved);
+    if (saved) {
+      hadSavedDraft.current = true;
+      setDraft(saved);
+    }
     setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/passages")
+      .then((res) => res.json() as Promise<ApiResponse<Passage[]>>)
+      .then((body) => {
+        if (!live) return;
+        const loaded = body.ok ? body.data : [];
+        setList({ state: "ready", passages: loaded });
+        // First visit with nothing typed yet: start from the first saved passage.
+        const first = loaded[0];
+        if (first && !hadSavedDraft.current) {
+          setDraft((d) => (d.text === "" ? { ...d, passageId: first.id, title: first.title, text: first.text } : d));
+        }
+      })
+      .catch(() => {
+        if (live) setList({ state: "ready", passages: [] });
+      });
+    return () => {
+      live = false;
+    };
   }, []);
 
   useEffect(() => {
     if (hydrated) writeDraft(draft);
   }, [draft, hydrated]);
+
+  const passages = list.state === "ready" ? list.passages : [];
 
   const tokens = useMemo(() => tokenizePassage(draft.text), [draft.text]);
   const finishAt = (wcpm: number) => Math.round((tokens.length / wcpm) * 60);
@@ -45,19 +71,31 @@ export function PassageStep() {
           <CardDescription>Use one of the sample passages or paste any English text from your own reading program.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Sample passages">
-            {passages.map((p) => (
-              <Button
-                key={p.id}
-                size="sm"
-                variant={draft.passageId === p.id ? "secondary" : "ghost"}
-                aria-pressed={draft.passageId === p.id}
-                onClick={() => setDraft((d) => ({ ...d, passageId: p.id, title: p.title, text: p.text }))}
-              >
-                {p.title}
-              </Button>
-            ))}
-          </div>
+          {list.state === "loading" ? (
+            <div className="flex flex-wrap gap-2" aria-busy="true" aria-label="Loading saved passages">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-9 w-40 rounded-xl bg-surface" />
+              ))}
+            </div>
+          ) : passages.length === 0 ? (
+            <p className="rounded-xl bg-surface p-4 text-sm text-muted-foreground">
+              No saved passages yet. Paste your own below.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Sample passages">
+              {passages.map((p) => (
+                <Button
+                  key={p.id}
+                  size="sm"
+                  variant={draft.passageId === p.id ? "secondary" : "ghost"}
+                  aria-pressed={draft.passageId === p.id}
+                  onClick={() => setDraft((d) => ({ ...d, passageId: p.id, title: p.title, text: p.text }))}
+                >
+                  {p.title}
+                </Button>
+              ))}
+            </div>
+          )}
 
           <label className="block space-y-2">
             <span className="text-sm font-semibold">Passage</span>
