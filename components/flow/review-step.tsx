@@ -96,7 +96,7 @@ export function ReviewStep() {
 
   const playNote =
     take.source === "sample"
-      ? "Sample readings come as transcripts without audio. Record a live reading to listen back."
+      ? "This is a sample transcript without audio, so there is no clip to play. With the speech model switched on, a live recording plays back here."
       : "The audio lives only in this tab's memory and was cleared by a reload. Record again to listen back.";
 
   return (

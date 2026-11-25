@@ -14,7 +14,11 @@ const brandFiles = fs.existsSync(brandDir)
   : [];
 
 const nextConfig: NextConfig = {
-  env: { NEXT_PUBLIC_BRAND_FILES: brandFiles.join(",") },
+  env: {
+    NEXT_PUBLIC_BRAND_FILES: brandFiles.join(","),
+    // ADAPTER_MODE is the switch the runner sets; this mirror lets client code read it.
+    NEXT_PUBLIC_ADAPTER_MODE: process.env.ADAPTER_MODE ?? "fake",
+  },
 };
 
 export default nextConfig;

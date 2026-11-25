@@ -6,8 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MODEL_ID, loadWhisper, transcribeLocally, watchModel, type ModelStatus } from "@/components/whisper-local";
-import { sampleReadings } from "@/lib/data";
+import { getAsrAdapter, type ModelStatus } from "@/lib/adapters/asr";
+import { getDataAdapter } from "@/lib/adapters/readings";
+import type { SampleReading } from "@/lib/types";
 import { readDraft, readTake, setLiveAudio, writeTake, type FlowDraft, type FlowTake } from "@/lib/flow-session";
 import { analyzeReading, formatClock, scoreReading } from "@/lib/scoring";
 
@@ -48,7 +49,12 @@ function rms(pcm: Float32Array): number {
   return Math.sqrt(sum / Math.max(1, pcm.length));
 }
 
+const asr = getAsrAdapter();
+
 function modelLine(s: ModelStatus): string {
+  if (asr.mode === "fake") {
+    return "Demo mode: no model download. A recording here gets the sample transcript of The House on Tern Hill, clearly labelled, so you can walk the whole flow.";
+  }
   switch (s.state) {
     case "idle":
       return "Preparing the speech model.";
@@ -83,8 +89,8 @@ export function RecordStep() {
 
   // Preload the model as soon as the step opens so it is warm when the child finishes.
   useEffect(() => {
-    const off = watchModel(setModel);
-    loadWhisper().catch(() => undefined);
+    const off = asr.watch(setModel);
+    asr.preload();
     return off;
   }, []);
 
@@ -96,10 +102,32 @@ export function RecordStep() {
     [],
   );
 
-  const sample = useMemo(
-    () => (draft?.passageId ? sampleReadings.find((r) => r.passageId === draft.passageId) ?? null : null),
-    [draft],
-  );
+  const [sample, setSample] = useState<SampleReading | null>(null);
+  const passageId = draft?.passageId ?? null;
+
+  useEffect(() => {
+    let live = true;
+    if (!passageId) {
+      setSample(null);
+      return;
+    }
+    const data = getDataAdapter();
+    data
+      .listReadings()
+      .then((list) => {
+        const first = list.find((r) => r.passageId === passageId);
+        return first ? data.getReading(first.id) : null;
+      })
+      .then((r) => {
+        if (live) setSample(r);
+      })
+      .catch(() => {
+        if (live) setSample(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [passageId]);
 
   const finish = useCallback(async (blob: Blob) => {
     try {
@@ -113,9 +141,12 @@ export function RecordStep() {
         setPhase("idle");
         return;
       }
-      setLiveAudio(buffer);
+      // In demo mode the transcript is the sample fixture, so its timings do not match this
+      // recording. Keep no audio then: the review step says plainly that there is no clip.
+      const fake = asr.mode === "fake";
+      setLiveAudio(fake ? null : buffer);
       setPhase("transcribing");
-      const result = await transcribeLocally(pcm);
+      const result = await asr.transcribe(pcm);
       if (result.words.length === 0) {
         setProblem(PROBLEMS.empty);
         setPhase("idle");
@@ -123,8 +154,8 @@ export function RecordStep() {
       }
       const next: FlowTake = {
         words: result.words,
-        source: "whisper",
-        producedBy: `${MODEL_ID} in this browser${result.timing === "segment" ? " (word timings estimated)" : ""}`,
+        source: fake ? "sample" : "whisper",
+        producedBy: asr.describe(result),
         recordedAt: new Date().toISOString(),
       };
       writeTake(next);
@@ -265,7 +296,13 @@ export function RecordStep() {
                 <Square /> Stop at {formatClock(elapsed)}
               </Button>
             ) : (
-              <Button size="lg" variant={take ? "outline" : "default"} className="w-full" onClick={start} disabled={busy}>
+              <Button
+                size="lg"
+                variant={take ? "outline" : "default"}
+                className="h-auto min-h-13 w-full whitespace-normal py-3 text-center"
+                onClick={start}
+                disabled={busy}
+              >
                 <Mic />
                 {busy ? (phase === "decoding" ? "Preparing the audio..." : "Transcribing on this device...") : take ? "Record again" : "Start recording"}
               </Button>
@@ -281,7 +318,12 @@ export function RecordStep() {
             )}
 
             {sample && (
-              <Button variant="ghost" className="w-full" onClick={loadSample} disabled={phase !== "idle"}>
+              <Button
+                variant="ghost"
+                className="h-auto min-h-11 w-full whitespace-normal py-2.5 text-center"
+                onClick={loadSample}
+                disabled={phase !== "idle"}
+              >
                 No microphone handy? Load {sample.student}&apos;s sample reading
               </Button>
             )}
